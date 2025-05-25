@@ -9,6 +9,8 @@ class PhotographyPortfolio {
         this.totalPhotos = 241; // Total number of local photos
         this.scrollY = 0;
         this.lastTriggeredMarkType = null; // For ensuring mark variety with IntersectionObserver
+        this.scrollAnimationQueue = []; // Queue for scroll-triggered animations
+        this.isScrollAnimationPlaying = false; // Flag to manage sequential scroll animations
         this.init();
     }
 
@@ -193,7 +195,12 @@ class PhotographyPortfolio {
         const originalRows = Array.from(photoGrid.children);
         const cloneFragment = document.createDocumentFragment(); // Fragment for clones
         originalRows.forEach(row => {
-            cloneFragment.appendChild(row.cloneNode(true));
+            const clonedRow = row.cloneNode(true);
+            // Add data-is-clone attribute to photo-frames within the cloned row
+            clonedRow.querySelectorAll('.photo-frame').forEach(frame => {
+                frame.dataset.isClone = 'true';
+            });
+            cloneFragment.appendChild(clonedRow);
         });
         photoGrid.appendChild(cloneFragment); // Append all clones from fragment
         
@@ -589,10 +596,11 @@ class PhotographyPortfolio {
                 const isVisible = rect.top < window.innerHeight && rect.bottom >= 0 &&
                                   rect.left < window.innerWidth && rect.right >= 0;
 
-                if (isVisible) {
+                // Only original frames (not clones) are considered for the initial animation sequence
+                if (isVisible && !frame.dataset.isClone) {
                     initiallyVisibleMarkedFrames.push(frame);
                 } else {
-                    // Setup observer for frames not initially visible
+                    // Setup observer for frames not initially visible OR for all cloned frames that are candidates
                     const observerCallback = (entries, observerInstance) => {
                         entries.forEach(entry => {
                             if (entry.isIntersecting && !frame.dataset.isMarked) {
@@ -602,13 +610,13 @@ class PhotographyPortfolio {
                                 } while (markTypes.length > 1 && markType === this.lastTriggeredMarkType);
                                 this.lastTriggeredMarkType = markType;
                                 
-                                const overlay = frame.querySelector('.markup-overlay');
-                                const markAnimationDuration = (0.2 + Math.random() * 0.3).toFixed(1);
-                                if (overlay) {
-                                    this.drawMark(overlay, markType, '0s', markAnimationDuration + 's');
-                                }
-                                frame.dataset.isMarked = 'true';
-                                observerInstance.unobserve(frame); // Stop observing once marked
+                                // Add to queue instead of animating directly
+                                this.scrollAnimationQueue.push({ frame, markType });
+                                this.processScrollAnimationQueue(); // Attempt to process the queue
+                                
+                                // No longer drawMark or set isMarked here directly for scroll items
+                                // frame.dataset.isMarked = 'true'; // This will be set by processScrollAnimationQueue
+                                observerInstance.unobserve(frame); // Stop observing once queued
                             }
                         });
                     };
@@ -630,7 +638,7 @@ class PhotographyPortfolio {
             return indexA - indexB;
         });
         
-        let cumulativeDelay = 1.0; // 1-second initial delay before the VERY first animation
+        let cumulativeDelay = 3.0; // Changed from 1.0 to 3.0 - initial delay before the VERY first animation
 
         initiallyVisibleMarkedFrames.forEach(frame => {
             // Ensure frame hasn't been marked by a quick scroll-triggered observer (unlikely but a safeguard)
@@ -766,6 +774,42 @@ class PhotographyPortfolio {
         // This is generally fine. If an old observer was somehow still active and triggered,
         // !frame.dataset.isMarked would fail if clearAllMarkings wasn't called first.
         // Calling clearAllMarkings at the start of addMarkings handles this.
+    }
+
+    async processScrollAnimationQueue() {
+        if (this.isScrollAnimationPlaying || this.scrollAnimationQueue.length === 0) {
+            return;
+        }
+
+        this.isScrollAnimationPlaying = true;
+        const itemToAnimate = this.scrollAnimationQueue.shift(); // Get the first item
+        const { frame, markType } = itemToAnimate;
+
+        // Wait 2 seconds (Delay After Becoming Visible)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Check if the frame is still in the DOM (e.g., if content was rapidly re-rendered)
+        if (!document.body.contains(frame)) {
+            console.warn("[ScrollQueue] Frame removed before animation could start.");
+            this.isScrollAnimationPlaying = false;
+            this.processScrollAnimationQueue(); // Process next
+            return;
+        }
+
+        const overlay = frame.querySelector('.markup-overlay');
+        const markAnimationDuration = (0.2 + Math.random() * 0.3).toFixed(1); // seconds
+        
+        if (overlay) {
+            // The actual animation has 0s delay here, as the 2s wait was done above
+            this.drawMark(overlay, markType, '0s', markAnimationDuration + 's');
+        }
+        frame.dataset.isMarked = 'true'; // Mark it as animated
+
+        // Wait for the animation to finish
+        await new Promise(resolve => setTimeout(resolve, parseFloat(markAnimationDuration) * 1000));
+
+        this.isScrollAnimationPlaying = false;
+        this.processScrollAnimationQueue(); // Attempt to process the next item
     }
 }
 

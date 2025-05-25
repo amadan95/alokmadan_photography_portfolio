@@ -353,7 +353,7 @@ body {
     padding: 2px 35px; /* Padding from the main film strip edges */
     /* animation: autoScrollUp 200s linear infinite; */ /* TEMP DISABLED FOR DEV */
     animation: autoScrollUp 200s linear infinite alternate;
-    animation-delay: 1s; /* Changed to 1s delay */
+    animation-delay: 3s; /* Changed from 1s to 3s delay */
     will-change: transform; /* Hint for animation performance */
 }
 
@@ -502,19 +502,65 @@ body {
 }
 @media (max-width: 768px) {
     .photo-grid { grid-template-columns: repeat(3, 1fr); padding: 8px 25px; gap: 1.5px; }
+    /* The photo-frames-container is the grid now, not .photo-grid directly */
+    .photo-frames-container { grid-template-columns: repeat(3, 1fr); }
     .nav-links { gap: 15px; }
     .about-section, .contact-section { padding: 40px 25px; margin: 15px auto; }
     .contact-sheet { padding: 30px 0; }
-    .frame-number { font-size: 0.5rem; top: 1px; left: 2px; }
+    .frame-number { 
+        font-size: 0.5rem; 
+        /* top: 1px; */ /* Removed as it's no longer absolutely positioned */
+        /* left: 2px; */ /* Removed as it's no longer absolutely positioned */
+    }
 }
 @media (max-width: 480px) {
-    .photo-grid { grid-template-columns: repeat(2, 1fr); padding: 5px 25px; gap: 1px; }
+    /* .photo-grid refers to the flex container for rows now */
+    /* .photo-frames-container is the actual grid of photos */
+    .photo-frames-container { grid-template-columns: repeat(2, 1fr); }
+    .photo-grid { padding: 5px 20px; } /* Adjusted padding for .photo-grid container */
+
     .film-perforations { width: 15px; }
-    .nav-bar { left: 15px; right: 15px; padding: 6px 10px; }
+    .nav-bar { 
+        left: 15px; 
+        right: 15px; 
+        padding: 6px 10px; 
+        flex-wrap: wrap; /* Allow nav items to wrap if needed */
+        justify-content: center; /* Center items when they wrap */
+        gap: 5px; /* Add a small gap if items wrap */
+    }
+    .nav-left, .nav-right {
+        flex-basis: auto; /* Allow them to shrink to content */
+    }
+    .nav-center .logo-container {
+        gap: 8px; /* Reduced gap */
+    }
+    .photographer-name,
+    .nav-center .logo-text { /* Target .logo-text within .nav-center for specificity */
+        font-size: 0.75rem; /* Reduced font size */
+    }
+    .markup-toggle-container .logo-text { /* Label for MARK DOWN */
+        font-size: 0.7rem; /* Reduced font size */
+    }
+    .film-stock-dropdown {
+        font-size: 0.7rem; /* Reduced font size */
+        padding: 4px 6px; /* Slightly adjusted padding */
+    }
+    .nav-links {
+        gap: 10px; /* Reduced gap */
+        width: 100%; /* Make nav-links take full width to center them if nav-bar wraps */
+        justify-content: center; /* Center the links */
+    }
+    .nav-links a {
+        font-size: 0.65rem; /* Reduced font size */
+    }
     .sheet-header, .sheet-footer { padding: 3px 20px; }
     .film-info { font-size: 0.55rem; letter-spacing: 0.5px; }
-    .logo { font-size: 0.8rem; }
-    .nav-links a { font-size: 0.7rem; }
+    /* .logo { font-size: 0.8rem; } */ /* Removed this as .logo-text and .photographer-name are more specific */
+    
+    .info-segment {
+        font-size: 0.5rem; /* Further reduce for very narrow segments */
+        padding: 0 3px;
+    }
 }
 
 /* Smooth scrolling */
