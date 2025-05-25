@@ -400,12 +400,11 @@ body {
     flex-grow: 1;
     overflow: hidden;
     background: #000; /* Original background */
-    /* Removed height, display, align-items, justify-content, position from newer design */
     object-fit: cover;
     /* Filter moved to .photo-img for direct control */
-    /* filter: grayscale(100%) contrast(1.5) brightness(0.85); */ /* Original filter */
     /* transition: filter 0.2s ease; */ /* Transition moved to .photo-img */
-    /* Consider will-change: filter; if filter animation is still laggy, but it's less common to optimize than transform */
+    position: relative; /* Added for stacking context */
+    z-index: 1; /* Added for stacking context */
 }
 
 .photo-img {
@@ -633,7 +632,7 @@ body.film-stock-cinestill .photo-frame:hover .photo-img {
     width: 100%;
     height: 100%;
     pointer-events: none; /* So it doesn't interfere with hover/click on the photo frame */
-    z-index: 5; /* Above photo-img but below frame hover effects if needed, or manage hover on frame */
+    z-index: 2; /* Changed from 5 to 2, to be above .photo-container */
     overflow: hidden; /* Ensure SVG paths don't bleed out if oversized slightly */
 }
 
