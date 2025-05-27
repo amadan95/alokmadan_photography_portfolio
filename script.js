@@ -1,12 +1,12 @@
 // Photography Portfolio JavaScript
 // Authentic Film Contact Sheet with EXIF Data
 
-const TOTAL_AVAILABLE_PHOTOS = 241; // Define this at the top for the landing sequence
+const TOTAL_AVAILABLE_PHOTOS = 106; // Define this at the top for the landing sequence
 
 class PhotographyPortfolio {
     constructor() {
         this.photos = [];
-        this.totalPhotos = 241; // Total number of local photos
+        this.totalPhotos = 106; // Total number of local photos
         this.scrollY = 0;
         this.lastTriggeredMarkType = null; // For ensuring mark variety with IntersectionObserver
         this.scrollAnimationQueue = []; // Queue for scroll-triggered animations
@@ -434,7 +434,7 @@ class PhotographyPortfolio {
                     const photoData = this.photos.find(p => p.id === photoId);
 
                     if (photoData && !photoData.exifLoaded) {
-                        // console.log(`[Observer] EXIF not loaded for ${photoData.src}. Calling extractExifData.`);
+                        console.log(`[Observer] EXIF not loaded for ${photoData.src}. Calling extractExifData.`);
                         await this.extractExifData(photoData); // Ensure extractExifData updates the segment
                         // No longer need to call updateGridExifDisplay here as that was for old on-grid display
                         observer.unobserve(frame); // Stop observing once EXIF is fetched
@@ -455,10 +455,10 @@ class PhotographyPortfolio {
 
     // Modified extractExifData to call updatePhotoInfoSegment
     async extractExifData(photo) { // Made async
-        // console.log(`[EXIF] Attempting to extract EXIF for: ${photo.src}`);
+        console.log(`[EXIF] Attempting to extract EXIF for: ${photo.src}`);
         return new Promise((resolve) => {
             if (photo.exifLoaded) {
-                // console.log(`[EXIF] Data already loaded/attempted for: ${photo.src}`);
+                console.log(`[EXIF] Data already loaded/attempted for: ${photo.src}`);
                 this.updatePhotoInfoSegment(photo); // Update segment even if loaded before
                 resolve(photo);
                 return;
@@ -468,10 +468,10 @@ class PhotographyPortfolio {
             img.src = photo.src;
 
             img.onload = () => {
-                // console.log(`[EXIF] Image loaded (img.onload) for: ${photo.src}`);
+                console.log(`[EXIF] Image loaded (img.onload) for: ${photo.src}`);
                 try {
                     EXIF.getData(img, () => {
-                        // console.log(`[EXIF] EXIF.getData callback entered for: ${photo.src}`);
+                        console.log(`[EXIF] EXIF.getData callback entered for: ${photo.src}`);
                         const make = EXIF.getTag(img, "Make");
                         const model = EXIF.getTag(img, "Model");
                         const fNumber = EXIF.getTag(img, "FNumber");
@@ -509,7 +509,7 @@ class PhotographyPortfolio {
                         resolve(photo);
                     });
                 } catch (e) {
-                    // console.error(`[DEBUG] Error during EXIF processing for ${photo.src}:`, e);
+                    console.error(`[DEBUG] Error during EXIF processing for ${photo.src}:`, e);
                     photo.exif = { camera: 'EXIF Error', lens: 'EXIF Error', fStop: 'EXIF Error', iso: 'Error', shutter: 'EXIF Error' };
                     photo.exifLoaded = true;
                     this.updatePhotoInfoSegment(photo); // Update with error state
@@ -518,7 +518,7 @@ class PhotographyPortfolio {
             };
 
             img.onerror = () => {
-                // console.error(`[DEBUG] Failed to load image (img.onerror): ${photo.src}`);
+                console.error(`[DEBUG] Failed to load image (img.onerror): ${photo.src}`);
                 photo.exif = { camera: 'Load Error', lens: 'Load Error', fStop: 'Load Error', iso: 'Error', shutter: 'Load Error' };
                 photo.exifLoaded = true;
                 this.updatePhotoInfoSegment(photo); // Update with error state
@@ -537,7 +537,7 @@ class PhotographyPortfolio {
                 segment.textContent = `ISO ${isoValue} - ${shutterValue} - ${fStopValue}`;
             });
         } else {
-             // console.warn(`[InfoSegment] No info segment found for photo ID: ${photo.id}`);
+             console.warn(`[InfoSegment] No info segment found for photo ID: ${photo.id}`);
         }
     }
 
@@ -560,13 +560,13 @@ class PhotographyPortfolio {
     }
 
     addMarkings() {
-        console.log("[Markings] Adding markings with initial sequence and scroll-trigger...");
+        console.log("[Markings] Adding scroll-triggered markings...");
         this.clearAllMarkings(); // Clear previous markings and reset state
 
-        const percentToMark = 0.30; 
-        const numPhotosToMark = Math.floor(this.photos.length * percentToMark); 
+        const percentToMark = 0.30;
+        const numPhotosToMark = Math.floor(this.photos.length * percentToMark);
         const markTypes = ['circle', 'underline', 'square'];
-        
+
         // 1. Determine Photos to Mark (Random Selection)
         let allPhotosCopy = [...this.photos];
         // Fisher-Yates (aka Knuth) Shuffle for the copy
@@ -577,13 +577,12 @@ class PhotographyPortfolio {
         const randomlySelectedPhotos = allPhotosCopy.slice(0, numPhotosToMark);
         const idsToMarkRandomly = new Set(randomlySelectedPhotos.map(p => p.id));
 
-        console.log(`[Markings] Will mark ${idsToMarkRandomly.size} random photos. Sample IDs:`, Array.from(idsToMarkRandomly).slice(0,10));
+        console.log(`[Markings] Will mark ${idsToMarkRandomly.size} random photos on scroll. Sample IDs:`, Array.from(idsToMarkRandomly).slice(0, 10));
 
         const allFrames = document.querySelectorAll('.photo-frame');
-        const initiallyVisibleMarkedFrames = [];
 
-        // 2. Setup observers for non-visible marked frames & identify initially visible ones
-        const observerOptionsForLater = {
+        // 2. Setup observers for all marked frames
+        const observerOptions = {
             root: null, // relative to the viewport
             rootMargin: '0px',
             threshold: 0.1 // Trigger when 10% of the item is visible
@@ -592,74 +591,29 @@ class PhotographyPortfolio {
         allFrames.forEach(frame => {
             const photoId = parseInt(frame.dataset.photoId);
             if (idsToMarkRandomly.has(photoId)) {
-                const rect = frame.getBoundingClientRect();
-                const isVisible = rect.top < window.innerHeight && rect.bottom >= 0 &&
-                                  rect.left < window.innerWidth && rect.right >= 0;
+                const observerCallback = (entries, observerInstance) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting && !frame.dataset.isMarked) {
+                            let markType;
+                            do {
+                                markType = markTypes[Math.floor(Math.random() * markTypes.length)];
+                            } while (markTypes.length > 1 && markType === this.lastTriggeredMarkType);
+                            this.lastTriggeredMarkType = markType;
 
-                // Only original frames (not clones) are considered for the initial animation sequence
-                if (isVisible && !frame.dataset.isClone) {
-                    initiallyVisibleMarkedFrames.push(frame);
-                } else {
-                    // Setup observer for frames not initially visible OR for all cloned frames that are candidates
-                    const observerCallback = (entries, observerInstance) => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting && !frame.dataset.isMarked) {
-                                let markType;
-                                do {
-                                    markType = markTypes[Math.floor(Math.random() * markTypes.length)];
-                                } while (markTypes.length > 1 && markType === this.lastTriggeredMarkType);
-                                this.lastTriggeredMarkType = markType;
-                                
-                                // Add to queue instead of animating directly
-                                this.scrollAnimationQueue.push({ frame, markType });
-                                this.processScrollAnimationQueue(); // Attempt to process the queue
-                                
-                                // No longer drawMark or set isMarked here directly for scroll items
-                                // frame.dataset.isMarked = 'true'; // This will be set by processScrollAnimationQueue
-                                observerInstance.unobserve(frame); // Stop observing once queued
-                            }
-                        });
-                    };
-                    const observer = new IntersectionObserver(observerCallback, observerOptionsForLater);
-                    observer.observe(frame);
-                }
+                            // Add to queue for animation
+                            this.scrollAnimationQueue.push({ frame, markType });
+                            this.processScrollAnimationQueue(); // Attempt to process the queue
+
+                            observerInstance.unobserve(frame); // Stop observing once queued
+                        }
+                    });
+                };
+                const observer = new IntersectionObserver(observerCallback, observerOptions);
+                observer.observe(frame);
             }
         });
-        
-        // 3. Animate initially visible marked frames sequentially
-        console.log(`[Markings] Animating ${initiallyVisibleMarkedFrames.length} initially visible marked frames.`);
-        
-        // Sort initiallyVisibleMarkedFrames based on the original photo order in this.photos
-        initiallyVisibleMarkedFrames.sort((frameA, frameB) => {
-            const photoIdA = parseInt(frameA.dataset.photoId);
-            const photoIdB = parseInt(frameB.dataset.photoId);
-            const indexA = this.photos.findIndex(p => p.id === photoIdA);
-            const indexB = this.photos.findIndex(p => p.id === photoIdB);
-            return indexA - indexB;
-        });
-        
-        let cumulativeDelay = 3.0; // Changed from 1.0 to 3.0 - initial delay before the VERY first animation
-
-        initiallyVisibleMarkedFrames.forEach(frame => {
-            // Ensure frame hasn't been marked by a quick scroll-triggered observer (unlikely but a safeguard)
-            if (frame.dataset.isMarked) return;
-
-            let markType;
-            do {
-                markType = markTypes[Math.floor(Math.random() * markTypes.length)];
-            } while (markTypes.length > 1 && markType === this.lastTriggeredMarkType);
-            this.lastTriggeredMarkType = markType;
-
-            const overlay = frame.querySelector('.markup-overlay');
-            const markAnimationDuration = (0.2 + Math.random() * 0.3).toFixed(1);
-            
-            if (overlay) {
-                this.drawMark(overlay, markType, cumulativeDelay.toFixed(1) + 's', markAnimationDuration + 's');
-            }
-            frame.dataset.isMarked = 'true'; 
-            
-            cumulativeDelay += parseFloat(markAnimationDuration) + 1.0; // Animation duration + 1-second pause
-        });
+        // The initial animation sequence for visible items is removed.
+        // All marking animations are now handled by the IntersectionObserver and the queue.
     }
 
     drawMark(overlayElement, markType, animationDelay, animationDuration) { 
@@ -688,16 +642,17 @@ class PhotographyPortfolio {
             const centerY = 50;
             const baseRadius = 45 + (Math.random() - 0.5) * 4; 
             const segments = 20; 
-            let pathData = "M";
+            let pathData = "M"; // Start with MoveTo command
             for (let i = 0; i <= segments; i++) {
                 const angle = (i / segments) * (2 * Math.PI);
                 const jitterRadius = baseRadius + (Math.random() - 0.5) * 4; 
                 const jitterAngle = angle + (Math.random() - 0.5) * (Math.PI / segments / 4); 
                 const x = centerX + jitterRadius * Math.cos(jitterAngle) + (Math.random() - 0.5) * 2;
                 const y = centerY + jitterRadius * Math.sin(jitterAngle) + (Math.random() - 0.5) * 2;
-                pathData += ` ${x.toFixed(2)} ${y.toFixed(2)} ${i === 0 ? '' : 'L'}`;
+                // Add L for LineTo command only for points after the first one
+                pathData += `${i === 0 ? '' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
             }
-            pathData += " Z"; 
+            pathData += " Z"; // Close the path
             pathElement.setAttribute("d", pathData);
             elementsToAnimate.push(pathElement);
         } else if (markType === 'underline') {
@@ -785,8 +740,10 @@ class PhotographyPortfolio {
         const itemToAnimate = this.scrollAnimationQueue.shift(); // Get the first item
         const { frame, markType } = itemToAnimate;
 
-        // Wait 2 seconds (Delay After Becoming Visible)
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Parallax effect: Delay animation until item is visible and a short pause has passed.
+        // The IntersectionObserver threshold (0.1) means it's already partially visible.
+        // This 500ms delay is after it has crossed that threshold.
+        await new Promise(resolve => setTimeout(resolve, 500)); // Short delay after becoming visible
 
         // Check if the frame is still in the DOM (e.g., if content was rapidly re-rendered)
         if (!document.body.contains(frame)) {
@@ -800,12 +757,12 @@ class PhotographyPortfolio {
         const markAnimationDuration = (0.2 + Math.random() * 0.3).toFixed(1); // seconds
         
         if (overlay) {
-            // The actual animation has 0s delay here, as the 2s wait was done above
+            // The actual animation has 0s delay here, as the pause was handled above
             this.drawMark(overlay, markType, '0s', markAnimationDuration + 's');
         }
         frame.dataset.isMarked = 'true'; // Mark it as animated
 
-        // Wait for the animation to finish
+        // Wait for the drawing animation to finish
         await new Promise(resolve => setTimeout(resolve, parseFloat(markAnimationDuration) * 1000));
 
         this.isScrollAnimationPlaying = false;

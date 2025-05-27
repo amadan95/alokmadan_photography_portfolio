@@ -351,9 +351,9 @@ body {
     flex-direction: column;
     gap: 0px; /* No gap between film-strip-row and horizontal-film-info */
     padding: 2px 35px; /* Padding from the main film strip edges */
-    /* animation: autoScrollUp 200s linear infinite; */ /* TEMP DISABLED FOR DEV */
-    animation: autoScrollUp 200s linear infinite alternate;
-    animation-delay: 3s; /* Changed from 1s to 3s delay */
+    /* animation: autoScrollUp 200s linear infinite; */ /* TEMP DISABLED FOR DEV - Now permanently disabled by user request */
+    /* animation: autoScrollUp 200s linear infinite alternate; */
+    /* animation-delay: 3s; */ /* Changed from 1s to 3s delay */
     will-change: transform; /* Hint for animation performance */
 }
 
