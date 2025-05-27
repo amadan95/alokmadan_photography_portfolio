@@ -332,13 +332,23 @@ body {
 
 /* Film stock specific styling for info segments text */
 body.film-stock-trix .info-segments-container .info-segment {
-    color: #888; /* Darker grey for Tri-X text */
+    color: #FFD700; /* Changed to Yellow for Tri-X text */
 }
 body.film-stock-portra .info-segments-container .info-segment {
     color: #FFB700; /* Orange/Yellow for Portra text */
 }
 body.film-stock-cinestill .info-segments-container .info-segment {
     color: #FFAA00; /* Orange/Yellow for Cinestill text */
+}
+
+/* Ektachrome E100 style for info segments text */
+body.film-stock-ektachrome .info-segments-container .info-segment {
+    color: #FFD700; /* Yellow, to match frame numbers */
+}
+
+/* Kodak Gold 200 style for info segments text */
+body.film-stock-kodakgold .info-segments-container .info-segment {
+    color: #FFC700; /* Warm gold for Kodak Gold text */
 }
 
 .photo-frames-container {
@@ -615,9 +625,19 @@ body.film-stock-cinestill .photo-img {
     filter: saturate(0.85) contrast(1.1) brightness(1.0) hue-rotate(-5deg);
 }
 
+/* Kodak Ektachrome E100 style */
+body.film-stock-ektachrome .photo-img {
+    filter: saturate(1.25) contrast(1.15) brightness(1.02); /* Adjusted for more pop */
+}
+
+/* Kodak Gold 200 style */
+body.film-stock-kodakgold .photo-img {
+    filter: sepia(0.25) saturate(1.1) contrast(1.05) brightness(1.05) hue-rotate(-5deg);
+}
+
 /* Frame number colors based on film stock */
 body.film-stock-trix .frame-number {
-    color: #888; /* Darker grey for Tri-X frame numbers */
+    color: #FFD700; /* Changed to Yellow for Tri-X frame numbers */
 }
 body.film-stock-portra .frame-number {
     color: #FFB700; /* Orange/Yellow for Portra */
@@ -626,10 +646,22 @@ body.film-stock-cinestill .frame-number {
     color: #FFAA00; /* Orange/Yellow for Cinestill */
 }
 
+/* Ektachrome E100 frame number color */
+body.film-stock-ektachrome .frame-number {
+    color: #FFD700; /* Changed to yellow for Ektachrome frame numbers */
+}
+
+/* Kodak Gold 200 frame number color */
+body.film-stock-kodakgold .frame-number {
+    color: #FFC700; /* Warm gold for Kodak Gold frame numbers */
+}
+
 /* When a film stock is selected, ensure the hover effect still removes all filters */
 body.film-stock-trix .photo-frame:hover .photo-img,
 body.film-stock-portra .photo-frame:hover .photo-img,
-body.film-stock-cinestill .photo-frame:hover .photo-img {
+body.film-stock-cinestill .photo-frame:hover .photo-img,
+body.film-stock-ektachrome .photo-frame:hover .photo-img, /* Added Ektachrome */
+body.film-stock-kodakgold .photo-frame:hover .photo-img { /* Added Kodak Gold */
     filter: none;
 }
 

@@ -180,8 +180,10 @@ class PhotographyPortfolio {
                     </div>
                     <div class="markup-overlay"></div>
                     <div class="frame-number">${frameNumber}</div>
+                    <div class="mobile-exif-summary"></div> 
                     <div class="exif-data"></div>
                 `;
+                // console.log(`[Render] Created photoFrame HTML for ID ${photo.id}:`, photoFrame.innerHTML); // Log created HTML
                 photoFramesContainer.appendChild(photoFrame);
             });
             filmStripRow.appendChild(photoFramesContainer); 
@@ -349,14 +351,31 @@ class PhotographyPortfolio {
     */
 
     applyFilmStockStyle(stockValue) {
+        const FILM_STOCK_CLASSES = {
+            'trix': 'film-stock-trix',
+            'portra': 'film-stock-portra',
+            'cinestill': 'film-stock-cinestill',
+            'ektachrome': 'film-stock-ektachrome',
+            'kodakgold': 'film-stock-kodakgold' // Added Kodak Gold
+        };
+
         const body = document.body;
-        body.classList.remove('film-stock-trix', 'film-stock-portra', 'film-stock-cinestill');
+        // Remove all known film stock classes first to ensure a clean slate
+        Object.values(FILM_STOCK_CLASSES).forEach(className => {
+            body.classList.remove(className);
+        });
 
-        if (stockValue === 'trix') body.classList.add('film-stock-trix');
-        else if (stockValue === 'portra') body.classList.add('film-stock-portra');
-        else if (stockValue === 'cinestill') body.classList.add('film-stock-cinestill');
+        // Add the selected film stock class
+        if (FILM_STOCK_CLASSES[stockValue]) {
+            body.classList.add(FILM_STOCK_CLASSES[stockValue]);
+        } else {
+            // Fallback or default if stockValue is unknown (e.g., Portra)
+            body.classList.add(FILM_STOCK_CLASSES['portra']); 
+            console.warn(`Unknown film stock value: ${stockValue}. Defaulting to Portra.`);
+        }
 
-        this.updateFilmStripText(stockValue); // Updates header/footer film name
+        this.updateFilmStripText(stockValue);
+        this.updateEdgeMarkings(stockValue);
         
         document.querySelectorAll('.info-segment').forEach(segment => {
             const photoId = parseInt(segment.getAttribute('data-photo-id-info'));
@@ -375,46 +394,24 @@ class PhotographyPortfolio {
     }
 
     updateFilmStripText(stockValue) {
-        const filmInfoSpans = document.querySelectorAll('.sheet-header .film-info span:first-child, .sheet-footer .film-info span:first-child');
-        let filmName = 'KODAK TRI-X 400'; // Default
-        if (stockValue === 'portra') {
-            filmName = 'KODAK PORTRA 400';
-        } else if (stockValue === 'cinestill') {
-            filmName = 'CINESTILL 800T';
-        }
-        filmInfoSpans.forEach(span => span.textContent = filmName);
+        const filmName = this.getFilmNameForStock(stockValue);
+        const topFilmEdge = document.querySelector('.film-info.top-film-edge span:first-child');
+        const bottomFilmEdge = document.querySelector('.film-info.bottom-film-edge span:first-child');
+        if (topFilmEdge) topFilmEdge.textContent = filmName;
+        if (bottomFilmEdge) bottomFilmEdge.textContent = filmName;
     }
 
     updateEdgeMarkings(stockValue) {
-        const leftPerf = document.querySelector('.film-perforations.left');
-        const rightPerf = document.querySelector('.film-perforations.right');
-        // Select ALL horizontal-film-info elements, as there's one per row now
-        const horizontalInfoElements = document.querySelectorAll('.horizontal-film-info');
+        const perforations = document.querySelectorAll('.film-perforations');
+        const validStocks = ['trix', 'portra', 'cinestill', 'ektachrome', 'kodakgold']; // Added Kodak Gold
 
-        // Combine vertical perforations and all horizontal info elements
-        let elementsToUpdate = [];
-        if (leftPerf) elementsToUpdate.push(leftPerf);
-        if (rightPerf) elementsToUpdate.push(rightPerf);
-        elementsToUpdate = elementsToUpdate.concat(Array.from(horizontalInfoElements));
-        
-        // Remove old top/bottom edge code selectors as they are no longer used
-        // const topHorizontalCodes = document.querySelector('.horizontal-edge-codes.top-edge-codes');
-        // const bottomHorizontalCodes = document.querySelector('.horizontal-edge-codes.bottom-edge-codes');
-        // elementsToUpdate = [leftPerf, rightPerf, topHorizontalCodes, bottomHorizontalCodes].filter(el => el !== null);
-
-
-        elementsToUpdate.forEach(el => {
-            if (!el) return; // Skip if an element wasn't found
-            // Remove existing marking classes
-            el.classList.remove('trix-marks', 'portra-marks', 'cinestill-marks');
+        perforations.forEach(perf => {
+            // Remove all potential stock-specific marking classes first
+            perf.classList.remove('trix-marks', 'portra-marks', 'cinestill-marks');
 
             // Add new class based on stock
-            if (stockValue === 'trix') {
-                el.classList.add('trix-marks');
-            } else if (stockValue === 'portra') {
-                el.classList.add('portra-marks');
-            } else if (stockValue === 'cinestill') {
-                el.classList.add('cinestill-marks');
+            if (validStocks.includes(stockValue)) {
+                perf.classList.add(`${stockValue}-marks`);
             }
         });
     }
@@ -528,34 +525,94 @@ class PhotographyPortfolio {
     }
     
     updatePhotoInfoSegment(photo) {
-        const infoSegments = document.querySelectorAll(`.info-segment[data-photo-id-info="${photo.id}"]`); // Use querySelectorAll
-        if (infoSegments.length > 0) {
-            infoSegments.forEach(segment => { // Iterate over all found segments
-                const isoValue = (photo.exifLoaded && photo.exif.iso && photo.exif.iso !== 'N/A') ? photo.exif.iso : '...';
-                const shutterValue = (photo.exifLoaded && photo.exif.shutter && photo.exif.shutter !== 'N/A') ? photo.exif.shutter : 'SS...';
-                const fStopValue = (photo.exifLoaded && photo.exif.fStop && photo.exif.fStop !== 'N/A') ? photo.exif.fStop : 'F/...';
-                segment.textContent = `ISO ${isoValue} - ${shutterValue} - ${fStopValue}`;
-            });
-        } else {
-             console.warn(`[InfoSegment] No info segment found for photo ID: ${photo.id}`);
+        console.log(`[MobileEXIF] updatePhotoInfoSegment called for photo ID: ${photo.id}, Loaded: ${photo.exifLoaded}`);
+
+        // Update the horizontal info segment (which is hidden on mobile now)
+        const infoSegment = document.querySelector(`.info-segment[data-photo-id-info="${photo.id}"]`);
+        if (infoSegment) {
+            infoSegment.textContent = `${photo.exif.iso} ${photo.exif.shutter} ${photo.exif.fStop}`;
         }
+
+        // Update the detailed EXIF data div (used by the modal)
+        const frame = document.querySelector(`.photo-frame[data-photo-id="${photo.id}"]`);
+        if (frame) {
+            const exifDataElement = frame.querySelector('.exif-data');
+            if (exifDataElement) {
+                exifDataElement.innerHTML = `Camera: ${photo.exif.camera}<br>Lens: ${photo.exif.lens}<br>Details: ${photo.exif.fStop} | ${photo.exif.shutter} | ISO ${photo.exif.iso}`;
+            }
+
+            // Update the new mobile-specific EXIF summary
+            const mobileExifSummaryElement = frame.querySelector('.mobile-exif-summary');
+            console.log(`[MobileEXIF] Found .mobile-exif-summary element for ID ${photo.id}:`, mobileExifSummaryElement);
+
+            if (mobileExifSummaryElement) {
+                let summaryText = '';
+                if (photo.exif.fStop && photo.exif.fStop !== 'N/A') {
+                    summaryText += photo.exif.fStop;
+                }
+                if (photo.exif.shutter && photo.exif.shutter !== 'N/A') {
+                    if (summaryText) summaryText += ' · '; // Add separator if fStop was present
+                    summaryText += photo.exif.shutter;
+                }
+                console.log(`[MobileEXIF] Generated summaryText for ID ${photo.id}: "${summaryText}"`);
+                mobileExifSummaryElement.textContent = summaryText || ''; 
+                console.log(`[MobileEXIF] Set textContent for ID ${photo.id} to: "${mobileExifSummaryElement.textContent}"`);
+            } else {
+                console.warn(`[MobileEXIF] .mobile-exif-summary element NOT FOUND for photo ID: ${photo.id}`);
+            }
+        } else {
+            console.warn(`[MobileEXIF] Photo frame NOT FOUND for photo ID: ${photo.id}`);
+        }
+
+        // Also update any cloned elements if they exist
+        const clonedFrames = document.querySelectorAll(`.photo-frame[data-photo-id="${photo.id}"][data-is-clone="true"]`);
+        clonedFrames.forEach(clonedFrame => {
+            // Update the new mobile-specific EXIF summary for clones
+            const clonedMobileExifSummaryElement = clonedFrame.querySelector('.mobile-exif-summary');
+            if (clonedMobileExifSummaryElement) {
+                let summaryText = '';
+                if (photo.exif.fStop && photo.exif.fStop !== 'N/A') {
+                    summaryText += photo.exif.fStop;
+                }
+                if (photo.exif.shutter && photo.exif.shutter !== 'N/A') {
+                    if (summaryText) summaryText += ' · ';
+                    summaryText += photo.exif.shutter;
+                }
+                clonedMobileExifSummaryElement.textContent = summaryText || '';
+                // console.log(`[MobileEXIF-Clone] Set textContent for cloned ID ${photo.id} to: "${clonedMobileExifSummaryElement.textContent}"`);
+            } else {
+                // console.warn(`[MobileEXIF-Clone] .mobile-exif-summary element NOT FOUND for cloned photo ID: ${photo.id} in frame:`, clonedFrame);
+            }
+
+            // Also update the detailed EXIF for clones if needed for modal consistency from cloned items
+            const clonedExifDataElement = clonedFrame.querySelector('.exif-data');
+            if (clonedExifDataElement) {
+                clonedExifDataElement.innerHTML = `Camera: ${photo.exif.camera}<br>Lens: ${photo.exif.lens}<br>Details: ${photo.exif.fStop} | ${photo.exif.shutter} | ISO ${photo.exif.iso}`;
+            }
+        });
     }
 
     // Helper to get film name string
     getFilmNameForStock(stockValue) {
-        if (stockValue === 'portra') return 'KODAK PORTRA 400';
-        if (stockValue === 'cinestill') return 'CINESTILL 800T';
-        // Ensure KODAK TX 400 is the fallback if stockValue is 'trix' or unexpected
-        return 'KODAK TX 400'; 
+        switch (stockValue) {
+            case 'trix': return 'KODAK TRI-X 400';
+            case 'portra': return 'KODAK PORTRA 400';
+            case 'cinestill': return 'CINESTILL 800T';
+            case 'ektachrome': return 'KODAK EKTACHROME E100';
+            case 'kodakgold': return 'KODAK GOLD 200'; // Added Kodak Gold
+            default: return 'UNKNOWN FILM';
+        }
     }
 
     // New method to apply styling classes to info segments based on film stock
     applyFilmStockStyleClasses(stockValue) {
         document.querySelectorAll('.info-segments-container').forEach(container => {
-            container.classList.remove('trix-style', 'portra-style', 'cinestill-style');
+            container.classList.remove('trix-style', 'portra-style', 'cinestill-style', 'ektachrome-style', 'kodakgold-style'); // Added kodakgold-style removal
             if (stockValue === 'trix') container.classList.add('trix-style');
             else if (stockValue === 'portra') container.classList.add('portra-style');
             else if (stockValue === 'cinestill') container.classList.add('cinestill-style');
+            else if (stockValue === 'ektachrome') container.classList.add('ektachrome-style');
+            else if (stockValue === 'kodakgold') container.classList.add('kodakgold-style'); // Added kodakgold-style
         });
     }
 
