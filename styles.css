@@ -3,6 +3,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    line-height: 1.4;
 }
 
 body {
@@ -10,7 +11,11 @@ body {
     background-color: #000;
     color: #e0e0e0;
     overflow-x: hidden;
-    line-height: 1.4;
+}
+
+/* This will hide the mobile-exif-summary on all screen sizes by default */
+.mobile-exif-summary {
+    display: none;
 }
 
 #film-grain-overlay {
@@ -235,7 +240,7 @@ body {
 
 /* Contact Sheet Section - Full Page, Authentic */
 .contact-sheet {
-    padding: 40px 0; /* Space for nav and film edge text */
+    padding: 60px 0 40px 0; /* Added 60px top padding, kept bottom padding */
     flex-grow: 1; /* Take up remaining space */
     display: flex;
     flex-direction: column;
@@ -300,7 +305,7 @@ body {
     padding: 0 5px;
     font-family: 'JetBrains Mono', 'Lucida Console', monospace;
     font-size: 0.6rem; /* Small text like on film */
-    /* Default text color removed, will be set by film-specific styles */
+    color: #888; /* Default to Tri-X style grey, will be overridden by specific film stock styles */
     text-transform: uppercase;
     overflow: hidden;
     white-space: nowrap;
@@ -326,17 +331,14 @@ body {
 }
 
 /* Film stock specific styling for info segments text */
-.info-segments-container.trix-style .info-segment {
+body.film-stock-trix .info-segments-container .info-segment {
     color: #888; /* Darker grey for Tri-X text */
-    /* background-color: #080808; /* Removed, uses common barcode background */
 }
-.info-segments-container.portra-style .info-segment {
+body.film-stock-portra .info-segments-container .info-segment {
     color: #FFB700; /* Orange/Yellow for Portra text */
-    /* background-color: #0A0A0A; /* Removed, uses common barcode background */
 }
-.info-segments-container.cinestill-style .info-segment {
+body.film-stock-cinestill .info-segments-container .info-segment {
     color: #FFAA00; /* Orange/Yellow for Cinestill text */
-    /* background-color: #050505; /* Removed, uses common barcode background */
 }
 
 .photo-frames-container {
@@ -505,7 +507,7 @@ body {
     .photo-frames-container { grid-template-columns: repeat(3, 1fr); }
     .nav-links { gap: 15px; }
     .about-section, .contact-section { padding: 40px 25px; margin: 15px auto; }
-    .contact-sheet { padding: 30px 0; }
+    .contact-sheet { padding: 30px 0; } /* Default for 768px */
     .frame-number { 
         font-size: 0.5rem; 
         /* top: 1px; */ /* Removed as it's no longer absolutely positioned */
@@ -518,52 +520,75 @@ body {
     .photo-frames-container { grid-template-columns: repeat(2, 1fr); }
     .photo-grid { padding: 5px 20px; } /* Adjusted padding for .photo-grid container */
 
+    .contact-sheet {
+        padding-top: 140px; /* Increased top padding to clear taller mobile navbar */
+    }
+
     .film-perforations { width: 15px; }
     .nav-bar { 
         flex-direction: column;
-        padding: 8px 10px; /* Reduced padding */
-        align-items: stretch; /* Make items take full width */
+        padding: 8px 10px;
+        align-items: stretch;
     }
     .nav-left, .nav-right {
-        justify-content: center; /* Center items when stacked */
-        flex-basis: auto; /* Reset basis */
-        padding: 5px 0; /* Add some vertical spacing */
+        justify-content: center;
+        flex-basis: auto;
+        padding: 5px 0;
     }
     .nav-center .logo-container {
-        justify-content: center; /* Center film stock dropdown */
-        width: 100%; /* Take full width */
+        justify-content: center;
+        width: 100%;
     }
     .photographer-name,
     .nav-links {
-        text-align: center; /* Center text for these elements */
-        width: 100%; /* Ensure they take full width if needed */
+        text-align: center;
+        width: 100%;
     }
-    .markup-toggle-container .logo-text { /* Label for MARK DOWN */
-        font-size: 0.7rem;
-    }
-    .film-stock-dropdown {
-        font-size: 0.7rem; /* Slightly smaller for mobile */
-        padding: 4px 6px;
-    }
-    .nav-links {
-        justify-content: center; /* Center nav links */
-        gap: 10px; /* Reduce gap */
-        margin-top: 5px;
-    }
-    .nav-links a {
-        font-size: 0.7rem;
-    }
+    .markup-toggle-container .logo-text { font-size: 0.7rem; }
+    .film-stock-dropdown { font-size: 0.7rem; padding: 4px 6px; }
+    .nav-links { justify-content: center; gap: 10px; margin-top: 5px; }
+    .nav-links a { font-size: 0.7rem; }
     .sheet-header, .sheet-footer { padding: 3px 20px; }
-    .film-info { font-size: 0.55rem; letter-spacing: 0.5px; }
-
+    
+    /* Hide the horizontal film strip info and the long EXIF segments on mobile */
+    .sheet-header .film-info {
+        display: none; /* Hides KODAK XXXX, etc. from header */
+    }
     .info-segments-container {
-        display: none; /* Hide the entire EXIF summary row on mobile */
+        display: none; /* Hides the horizontal row of f/stop, shutter, ISO */
     }
 
-    .info-segment {
-        /* Reverted to its state before the problematic text-wrapping attempt */
-        /* Properties like white-space: nowrap; will be inherited from the base .info-segment style */
-        /* font-size might also be inherited or can be set specifically if needed, but let's see */
+    .photo-frame {
+        /* Keep aspect-ratio for the overall frame shape */
+        /* overflow: visible; <-- This line will be removed */ 
+    }
+
+    .photo-container {
+        /* Allow it to shrink if needed to make space for text below */
+        flex-shrink: 1;
+        /* We want image to fill this, but not necessarily grow indefinitely if frame is constrained */
+        /* flex-grow: 1; // Keep this or test removal */
+    }
+
+    .frame-number {
+        font-size: 0.55rem; /* Ensure it's small */
+        padding: 1px 3px;
+        line-height: 1.2; /* Adjust line height */
+        flex-shrink: 0; /* Don't let frame number shrink */
+    }
+
+    .mobile-exif-summary {
+        display: none; /* Hide this on mobile as per new request */
+        /* font-size: 0.5rem; */ /* Other styles become irrelevant with display:none */
+        /* color: #aaa; */
+        /* padding: 1px 3px; */
+        /* text-align: center; */
+        /* background-color: #050505; */
+        /* width: 100%; */
+        /* position: relative; */
+        /* z-index: 1; */
+        /* line-height: 1.2; */
+        /* flex-shrink: 0; */
     }
 }
 
