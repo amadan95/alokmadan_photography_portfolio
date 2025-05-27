@@ -520,45 +520,54 @@ body {
 
     .film-perforations { width: 15px; }
     .nav-bar { 
-        left: 15px; 
-        right: 15px; 
-        padding: 6px 10px; 
-        flex-wrap: wrap; /* Allow nav items to wrap if needed */
-        justify-content: center; /* Center items when they wrap */
-        gap: 5px; /* Add a small gap if items wrap */
+        flex-direction: column;
+        padding: 8px 10px; /* Reduced padding */
+        align-items: stretch; /* Make items take full width */
     }
     .nav-left, .nav-right {
-        flex-basis: auto; /* Allow them to shrink to content */
+        justify-content: center; /* Center items when stacked */
+        flex-basis: auto; /* Reset basis */
+        padding: 5px 0; /* Add some vertical spacing */
     }
     .nav-center .logo-container {
-        gap: 8px; /* Reduced gap */
+        justify-content: center; /* Center film stock dropdown */
+        width: 100%; /* Take full width */
     }
     .photographer-name,
-    .nav-center .logo-text { /* Target .logo-text within .nav-center for specificity */
-        font-size: 0.75rem; /* Reduced font size */
+    .nav-links {
+        text-align: center; /* Center text for these elements */
+        width: 100%; /* Ensure they take full width if needed */
     }
     .markup-toggle-container .logo-text { /* Label for MARK DOWN */
-        font-size: 0.7rem; /* Reduced font size */
+        font-size: 0.7rem;
     }
     .film-stock-dropdown {
-        font-size: 0.7rem; /* Reduced font size */
-        padding: 4px 6px; /* Slightly adjusted padding */
+        font-size: 0.7rem; /* Slightly smaller for mobile */
+        padding: 4px 6px;
     }
     .nav-links {
-        gap: 10px; /* Reduced gap */
-        width: 100%; /* Make nav-links take full width to center them if nav-bar wraps */
-        justify-content: center; /* Center the links */
+        justify-content: center; /* Center nav links */
+        gap: 10px; /* Reduce gap */
+        margin-top: 5px;
     }
     .nav-links a {
-        font-size: 0.65rem; /* Reduced font size */
+        font-size: 0.7rem;
     }
     .sheet-header, .sheet-footer { padding: 3px 20px; }
     .film-info { font-size: 0.55rem; letter-spacing: 0.5px; }
-    /* .logo { font-size: 0.8rem; } */ /* Removed this as .logo-text and .photographer-name are more specific */
-    
+
     .info-segment {
-        font-size: 0.5rem; /* Further reduce for very narrow segments */
-        padding: 0 3px;
+        /* Original styles from .info-segment around line 295 might be inherited or overridden. */
+        /* We need to ensure these specific changes apply for mobile. */
+        white-space: normal;    /* Allow text to wrap */
+        word-break: break-all;  /* Break long words if necessary to prevent overflow */
+        font-size: 0.45rem;   /* Further reduce font size if needed */
+        /* text-align: left; */ /* Consider if left-align is better for wrapped text */
+        /* border-right: none; */ /* Consider removing the border if segments stack or wrap oddly */
+        /* If the info-segments-container itself needs to stack its children: */
+        /* Add to .info-segments-container if you want segments to stack vertically */
+        /* flex-direction: column; */ 
+        /* align-items: center; */
     }
 }
 
