@@ -556,18 +556,14 @@ body {
     .sheet-header, .sheet-footer { padding: 3px 20px; }
     .film-info { font-size: 0.55rem; letter-spacing: 0.5px; }
 
+    .info-segments-container {
+        display: none; /* Hide the entire EXIF summary row on mobile */
+    }
+
     .info-segment {
-        /* Original styles from .info-segment around line 295 might be inherited or overridden. */
-        /* We need to ensure these specific changes apply for mobile. */
-        white-space: normal;    /* Allow text to wrap */
-        word-break: break-all;  /* Break long words if necessary to prevent overflow */
-        font-size: 0.45rem;   /* Further reduce font size if needed */
-        /* text-align: left; */ /* Consider if left-align is better for wrapped text */
-        /* border-right: none; */ /* Consider removing the border if segments stack or wrap oddly */
-        /* If the info-segments-container itself needs to stack its children: */
-        /* Add to .info-segments-container if you want segments to stack vertically */
-        /* flex-direction: column; */ 
-        /* align-items: center; */
+        /* Reverted to its state before the problematic text-wrapping attempt */
+        /* Properties like white-space: nowrap; will be inherited from the base .info-segment style */
+        /* font-size might also be inherited or can be set specifically if needed, but let's see */
     }
 }
 
