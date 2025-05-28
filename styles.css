@@ -351,6 +351,11 @@ body.film-stock-kodakgold .info-segments-container .info-segment {
     color: #FFC700; /* Warm gold for Kodak Gold text */
 }
 
+/* Rollei Infrared 400 style for info segments text */
+body.film-stock-rolleiir .info-segments-container .info-segment {
+    color: #E0E0E0; /* Bright silver for Rollei IR text */
+}
+
 .photo-frames-container {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -635,6 +640,11 @@ body.film-stock-kodakgold .photo-img {
     filter: sepia(0.25) saturate(1.1) contrast(1.05) brightness(1.05) hue-rotate(-5deg);
 }
 
+/* Rollei Infrared 400 style (simulating IR filter) */
+body.film-stock-rolleiir .photo-img {
+    filter: grayscale(1) contrast(1.75) brightness(1.1) hue-rotate(180deg) saturate(0.2);
+}
+
 /* Frame number colors based on film stock */
 body.film-stock-trix .frame-number {
     color: #FFD700; /* Changed to Yellow for Tri-X frame numbers */
@@ -656,12 +666,17 @@ body.film-stock-kodakgold .frame-number {
     color: #FFC700; /* Warm gold for Kodak Gold frame numbers */
 }
 
+/* Rollei Infrared 400 frame number color */
+body.film-stock-rolleiir .frame-number {
+    color: #E0E0E0; /* Bright silver for Rollei IR frame numbers */
+}
+
 /* When a film stock is selected, ensure the hover effect still removes all filters */
 body.film-stock-trix .photo-frame:hover .photo-img,
 body.film-stock-portra .photo-frame:hover .photo-img,
 body.film-stock-cinestill .photo-frame:hover .photo-img,
-body.film-stock-ektachrome .photo-frame:hover .photo-img, /* Added Ektachrome */
-body.film-stock-kodakgold .photo-frame:hover .photo-img { /* Added Kodak Gold */
+body.film-stock-ektachrome .photo-frame:hover .photo-img,
+body.film-stock-kodakgold .photo-frame:hover .photo-img { /* Added Rollei IR */
     filter: none;
 }
 

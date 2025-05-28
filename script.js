@@ -356,7 +356,7 @@ class PhotographyPortfolio {
             'portra': 'film-stock-portra',
             'cinestill': 'film-stock-cinestill',
             'ektachrome': 'film-stock-ektachrome',
-            'kodakgold': 'film-stock-kodakgold' // Added Kodak Gold
+            'kodakgold': 'film-stock-kodakgold'
         };
 
         const body = document.body;
@@ -403,7 +403,7 @@ class PhotographyPortfolio {
 
     updateEdgeMarkings(stockValue) {
         const perforations = document.querySelectorAll('.film-perforations');
-        const validStocks = ['trix', 'portra', 'cinestill', 'ektachrome', 'kodakgold']; // Added Kodak Gold
+        const validStocks = ['trix', 'portra', 'cinestill', 'ektachrome', 'kodakgold'];
 
         perforations.forEach(perf => {
             // Remove all potential stock-specific marking classes first
@@ -431,10 +431,13 @@ class PhotographyPortfolio {
                     const photoData = this.photos.find(p => p.id === photoId);
 
                     if (photoData && !photoData.exifLoaded) {
-                        console.log(`[Observer] EXIF not loaded for ${photoData.src}. Calling extractExifData.`);
-                        await this.extractExifData(photoData); // Ensure extractExifData updates the segment
-                        // No longer need to call updateGridExifDisplay here as that was for old on-grid display
-                        observer.unobserve(frame); // Stop observing once EXIF is fetched
+                        console.log(`[Observer] EXIF not loaded for ${photoData.src}. Initiating extractExifData.`);
+                        // No longer awaiting here - let them run concurrently
+                        this.extractExifData(photoData)
+                            .catch(error => {
+                                console.error(`[Observer] Error processing EXIF for ${photoData.src} in background:`, error);
+                            });
+                        observer.unobserve(frame); // Unobserve immediately after initiating
                     } else if (photoData && photoData.exifLoaded) {
                          // If EXIF was already loaded (e.g. from a previous modal view), ensure segment is updated
                         this.updatePhotoInfoSegment(photoData);
@@ -527,13 +530,18 @@ class PhotographyPortfolio {
     updatePhotoInfoSegment(photo) {
         console.log(`[MobileEXIF] updatePhotoInfoSegment called for photo ID: ${photo.id}, Loaded: ${photo.exifLoaded}`);
 
-        // Update the horizontal info segment (which is hidden on mobile now)
-        const infoSegment = document.querySelector(`.info-segment[data-photo-id-info="${photo.id}"]`);
-        if (infoSegment) {
-            infoSegment.textContent = `${photo.exif.iso} ${photo.exif.shutter} ${photo.exif.fStop}`;
-        }
+        // Update the horizontal info segment(s)
+        const infoSegments = document.querySelectorAll(`.info-segment[data-photo-id-info="${photo.id}"]`);
+        infoSegments.forEach(infoSegment => {
+            if (infoSegment) {
+                const isoValue = (photo.exifLoaded && photo.exif.iso && photo.exif.iso !== 'N/A') ? photo.exif.iso : '...';
+                const shutterValue = (photo.exifLoaded && photo.exif.shutter && photo.exif.shutter !== 'N/A') ? photo.exif.shutter : 'SS...';
+                const fStopValue = (photo.exifLoaded && photo.exif.fStop && photo.exif.fStop !== 'N/A') ? photo.exif.fStop : 'F/...';
+                infoSegment.textContent = `ISO ${isoValue} - ${shutterValue} - ${fStopValue}`;
+            }
+        });
 
-        // Update the detailed EXIF data div (used by the modal)
+        // Update the detailed EXIF data div (used by the modal) for original and clones
         const frame = document.querySelector(`.photo-frame[data-photo-id="${photo.id}"]`);
         if (frame) {
             const exifDataElement = frame.querySelector('.exif-data');
@@ -599,7 +607,7 @@ class PhotographyPortfolio {
             case 'portra': return 'KODAK PORTRA 400';
             case 'cinestill': return 'CINESTILL 800T';
             case 'ektachrome': return 'KODAK EKTACHROME E100';
-            case 'kodakgold': return 'KODAK GOLD 200'; // Added Kodak Gold
+            case 'kodakgold': return 'KODAK GOLD 200';
             default: return 'UNKNOWN FILM';
         }
     }
@@ -607,12 +615,12 @@ class PhotographyPortfolio {
     // New method to apply styling classes to info segments based on film stock
     applyFilmStockStyleClasses(stockValue) {
         document.querySelectorAll('.info-segments-container').forEach(container => {
-            container.classList.remove('trix-style', 'portra-style', 'cinestill-style', 'ektachrome-style', 'kodakgold-style'); // Added kodakgold-style removal
+            container.classList.remove('trix-style', 'portra-style', 'cinestill-style', 'ektachrome-style', 'kodakgold-style', 'rolleiir-style');
             if (stockValue === 'trix') container.classList.add('trix-style');
             else if (stockValue === 'portra') container.classList.add('portra-style');
             else if (stockValue === 'cinestill') container.classList.add('cinestill-style');
             else if (stockValue === 'ektachrome') container.classList.add('ektachrome-style');
-            else if (stockValue === 'kodakgold') container.classList.add('kodakgold-style'); // Added kodakgold-style
+            else if (stockValue === 'kodakgold') container.classList.add('kodakgold-style');
         });
     }
 
@@ -620,7 +628,7 @@ class PhotographyPortfolio {
         console.log("[Markings] Adding scroll-triggered markings...");
         this.clearAllMarkings(); // Clear previous markings and reset state
 
-        const percentToMark = 0.30;
+        const percentToMark = 0.20;
         const numPhotosToMark = Math.floor(this.photos.length * percentToMark);
         const markTypes = ['circle', 'underline', 'square'];
 
@@ -642,7 +650,7 @@ class PhotographyPortfolio {
         const observerOptions = {
             root: null, // relative to the viewport
             rootMargin: '0px',
-            threshold: 0.1 // Trigger when 10% of the item is visible
+            threshold: 0.5 // Changed from 0.1 to 0.5
         };
 
         allFrames.forEach(frame => {
@@ -800,7 +808,7 @@ class PhotographyPortfolio {
         // Parallax effect: Delay animation until item is visible and a short pause has passed.
         // The IntersectionObserver threshold (0.1) means it's already partially visible.
         // This 500ms delay is after it has crossed that threshold.
-        await new Promise(resolve => setTimeout(resolve, 500)); // Short delay after becoming visible
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Changed from 500 to 1000
 
         // Check if the frame is still in the DOM (e.g., if content was rapidly re-rendered)
         if (!document.body.contains(frame)) {
