@@ -1,4 +1,4 @@
-# Photography Portfolio - Film Contact Sheet
+# Photography Portfolio - Alok Madan
 
 A stunning photography portfolio website designed to mimic the aesthetic of film contact sheets with parallax pen annotations and EXIF data display.
 
