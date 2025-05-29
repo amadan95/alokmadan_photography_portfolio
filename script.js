@@ -27,14 +27,22 @@ class PhotographyPortfolio {
 
     async initializePhotos() {
         console.log("[PhotoGrid] Initializing photos...");
-        this.container.innerHTML = ''; // Clear previous grid
+        const photoGrid = document.querySelector('.photo-grid');
+        if (!photoGrid) {
+            console.error("[PhotoGrid] Critical: '.photo-grid' element not found in the DOM. Cannot render photos.");
+            document.body.innerHTML = '<p style="color: red; text-align: center; font-size: 20px;">Error: Photo grid container not found. Site cannot load.</p>';
+            return;
+        }
+        photoGrid.innerHTML = ''; // Clear previous grid
         this.photos = [];
 
         try {
             const response = await fetch('/api/get-cloudinary-images');
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`Failed to fetch images: ${response.status} ${response.statusText} - ${errorData.details || errorData.error}`);
+                const errorText = await response.text(); // Get raw text for more detailed error
+                console.error(`[PhotoGrid] Failed to fetch images: ${response.status} ${response.statusText}. Server response: ${errorText}`);
+                photoGrid.innerHTML = `<p style="color: red; text-align: center;">Error loading photo data from server (status ${response.status}). Details: ${response.statusText}. Check console and Vercel logs.</p>`;
+                return;
             }
             const data = await response.json();
             const cloudinaryPhotos = data.images;
@@ -55,7 +63,7 @@ class PhotographyPortfolio {
                 src: photoData.src,
                 alt: `Photo ${index + 1}`,
                 exifLoaded: !!photoData.exif, // EXIF is pre-loaded
-                exif: photoData.exif, // Parsed EXIF from serverless function
+                exif: photoData.exif || { iso: 'N/A', shutter: 'N/A', fStop: 'N/A', model: 'N/A', lens: 'N/A' }, // Ensure exif object exists
                 rawExif: photoData.exifRaw, // Store raw EXIF if needed for debugging
                 filename: photoData.filename,
                 cloudinaryPublicId: photoData.public_id
@@ -581,65 +589,19 @@ class PhotographyPortfolio {
 
 async function startLandingSequence() {
     const overlay = document.getElementById('landing-sequence-overlay');
-    const landingImage = document.getElementById('landing-image');
+    const landingImage = document.getElementById('landing-image'); // This element might still be in HTML
     const mainContent = document.getElementById('main-content-wrapper');
 
-    if (!overlay || !landingImage || !mainContent) {
-        console.error("Landing sequence elements not found. Skipping sequence.");
-        showMainContentAndInitPortfolio();
-        return;
+    console.log("[Landing] Preparing to show main content. Bypassing old local image sequence.");
+
+    if (overlay) {
+        overlay.style.opacity = '0'; // Start fading out
+        await new Promise(resolve => setTimeout(resolve, 300)); // Short delay for fade
+        overlay.style.display = 'none';
+    } else {
+        console.warn("[Landing] Landing sequence overlay not found.");
     }
-
-    let photoNumbers = [];
-    for (let i = 1; i <= TOTAL_AVAILABLE_PHOTOS; i++) {
-        photoNumbers.push(i);
-    }
-
-    // Shuffle photoNumbers (Fisher-Yates)
-    for (let i = photoNumbers.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [photoNumbers[i], photoNumbers[j]] = [photoNumbers[j], photoNumbers[i]];
-    }
-
-    const sequencePhotos = photoNumbers.slice(0, 10); // Changed from 20 to 10
-    console.log("[Landing] Starting sequence with 10 random photos.");
-
-    // Preload images for the sequence
-    const preloadPromises = sequencePhotos.map(photoNum => {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = () => {
-                console.warn(`[Landing] Failed to preload image: images/photo-${photoNum}.jpg`);
-                resolve(null); // Resolve with null on error to not break Promise.allSettled
-            };
-            img.src = `images/photo-${photoNum}.jpg`;
-        });
-    });
-
-    console.log("[Landing] Preloading images...");
-    await Promise.allSettled(preloadPromises);
-    console.log("[Landing] Preloading finished.");
-
-    for (let i = 0; i < sequencePhotos.length; i++) {
-        const photoNum = sequencePhotos[i];
-        // It's good practice to re-check if landingImage is still in DOM,
-        // though in this flow it should be.
-        if (!document.body.contains(landingImage)) {
-            console.warn("[Landing] Landing image element removed prematurely. Stopping sequence.");
-            break;
-        }
-        landingImage.src = `images/photo-${photoNum}.jpg`;
-        landingImage.style.opacity = '1';
-        // Wait 0.25s while image is visible (includes 0.05s fade-in)
-        await new Promise(resolve => setTimeout(resolve, 250)); 
-        landingImage.style.opacity = '0';
-        // Wait 0.05s for fade-out to complete
-        await new Promise(resolve => setTimeout(resolve, 50)); 
-    }
-
-    console.log("[Landing] Sequence finished.");
-    overlay.style.display = 'none';
+    
     showMainContentAndInitPortfolio();
 }
 
@@ -647,20 +609,24 @@ function showMainContentAndInitPortfolio() {
     const mainContent = document.getElementById('main-content-wrapper');
     if (mainContent) {
         mainContent.style.display = 'block';
+    } else {
+        console.error("CRITICAL: Main content wrapper ('main-content-wrapper') not found. Site cannot be displayed.");
+        document.body.innerHTML = "<p style='color:red; text-align:center; font-size:1.2em;'>Site Error: Main content area missing.</p>";
+        return; // Stop if main content area is missing
     }
 
     window.portfolio = new PhotographyPortfolio(); // Make instance globally accessible
 
     console.log(
-`🖼️ LOCAL PHOTO MODE:
-- Loading ${window.portfolio.totalPhotos} photos from the local 'images' folder.
-- Attempting to extract EXIF data for each photo.
-- Ensure 'images/photo_001.jpg' to 'images/photo_${window.portfolio.totalPhotos.toString().padStart(3, '0')}.jpg' exist.`
+`🖼️ CLOUDINARY PHOTO MODE:
+- Attempting to load photos from Cloudinary via API.
+- EXIF data should be pre-fetched by the serverless function.`
     );
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    startLandingSequence(); // Start the landing sequence instead of direct init
+    // Directly call startLandingSequence, which now handles showing main content and initializing.
+    startLandingSequence();
 });
 
 function addPhotoClickHandlers() {
