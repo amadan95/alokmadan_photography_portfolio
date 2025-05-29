@@ -1,21 +1,21 @@
 // Photography Portfolio JavaScript
 // Authentic Film Contact Sheet with EXIF Data
 
-const TOTAL_AVAILABLE_PHOTOS = 106; // Define this at the top for the landing sequence
-
 class PhotographyPortfolio {
     constructor() {
         this.photos = [];
-        this.totalPhotos = 106; // Total number of local photos
+        this.totalPhotos = 0; // Will be set by API call
         this.scrollY = 0;
         this.lastTriggeredMarkType = null; // For ensuring mark variety with IntersectionObserver
         this.scrollAnimationQueue = []; // Queue for scroll-triggered animations
         this.isScrollAnimationPlaying = false; // Flag to manage sequential scroll animations
+        this.currentlyLoadingExif = new Set();
+        this.exifCache = new Map();
         this.init();
     }
 
     init() {
-        this.loadPhotos();
+        this.initializePhotos();
         this.setupEventListeners();
         this.applyFilmStockStyle('cinestill'); // Changed default to 'cinestill'
         // Also update the dropdown to reflect this default
@@ -25,113 +25,52 @@ class PhotographyPortfolio {
         }
     }
 
-    loadPhotos() {
+    async initializePhotos() {
+        console.log("[PhotoGrid] Initializing photos...");
+        this.container.innerHTML = ''; // Clear previous grid
         this.photos = [];
-        for (let i = 1; i <= this.totalPhotos; i++) {
-            const photoSrc = `images/photo-${i}.jpg`;
-            this.photos.push({
-                id: i,
-                src: photoSrc,
-                exif: { camera: 'Loading...', lens: 'Loading...', fStop: 'Loading...', iso: 'Loading...', shutter: 'Loading...' },
-                exifLoaded: false // Flag to track if EXIF has been loaded
-            });
-        }
-        this.shufflePhotos(); // Randomize the photo order
-        this.renderPhotoGrid();
-        this.hideLoadingScreen(); // Hide loading screen after initial render
-        this.initiateGridExifLoading(); // MOVED HERE: Call after grid and clones are fully rendered
-        
-        // Conditionally add markings based on checkbox
-        const markupToggle = document.getElementById('markup-animation-toggle');
-        if (markupToggle && markupToggle.checked) {
-            this.addMarkings(); 
-        }
-    }
 
-    // Fisher-Yates (aka Knuth) Shuffle algorithm
-    shufflePhotos() {
-        let currentIndex = this.photos.length, randomIndex;
-        // While there remain elements to shuffle.
-        while (currentIndex !== 0) {
-            // Pick a remaining element.
-            randomIndex = Math.floor(Math.random() * currentIndex);
-            currentIndex--;
-            // And swap it with the current element.
-            [this.photos[currentIndex], this.photos[randomIndex]] = [
-                this.photos[randomIndex], this.photos[currentIndex]];
-        }
-    }
+        try {
+            const response = await fetch('/api/get-cloudinary-images');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Failed to fetch images: ${response.status} ${response.statusText} - ${errorData.details || errorData.error}`);
+            }
+            const data = await response.json();
+            const cloudinaryPhotos = data.images;
 
-    // Now takes a photo object and returns a Promise
-    extractExifData(photo) {
-        console.log(`[EXIF] Attempting to extract EXIF for: ${photo.src}`);
-        return new Promise((resolve) => {
-            if (photo.exifLoaded) {
-                console.log(`[EXIF] Data already loaded/attempted for: ${photo.src}`);
-                resolve(photo); // Resolve with the photo object itself, even if already loaded
+            if (!cloudinaryPhotos || cloudinaryPhotos.length === 0) {
+                console.warn("[PhotoGrid] No photos returned from Cloudinary API or API error.");
+                this.totalPhotos = 0;
+                // Optionally, display a message to the user in the UI
+                this.container.innerHTML = '<p style="color: white; text-align: center;">No photos available. Please check the Cloudinary configuration.</p>';
                 return;
             }
 
-            const img = new Image();
-            img.src = photo.src;
+            this.totalPhotos = cloudinaryPhotos.length;
+            console.log(`[PhotoGrid] ${this.totalPhotos} photos found in Cloudinary.`);
 
-            img.onload = () => {
-                console.log(`[EXIF] Image loaded (img.onload) for: ${photo.src}`);
-                try {
-                    EXIF.getData(img, () => {
-                        console.log(`[EXIF] EXIF.getData callback entered for: ${photo.src}`);
-                        const make = EXIF.getTag(img, "Make");
-                        const model = EXIF.getTag(img, "Model");
-                        const fNumber = EXIF.getTag(img, "FNumber");
-                        const iso = EXIF.getTag(img, "ISOSpeedRatings");
-                        const focalLength = EXIF.getTag(img, "FocalLength");
-                        
-                        let rawExposureTime = EXIF.getTag(img, "ExposureTime");
-                        let numericExposureTime;
+            this.photos = cloudinaryPhotos.map((photoData, index) => ({
+                id: index + 1, // Keep sequential ID for now, or use photoData.id if it's suitable & unique for your needs
+                src: photoData.src,
+                alt: `Photo ${index + 1}`,
+                exifLoaded: !!photoData.exif, // EXIF is pre-loaded
+                exif: photoData.exif, // Parsed EXIF from serverless function
+                rawExif: photoData.exifRaw, // Store raw EXIF if needed for debugging
+                filename: photoData.filename,
+                cloudinaryPublicId: photoData.public_id
+            }));
 
-                        if (typeof rawExposureTime === 'object' && rawExposureTime.numerator && rawExposureTime.denominator) {
-                            // It's a Rational object from EXIF.js
-                            if (rawExposureTime.denominator !== 0) {
-                                numericExposureTime = rawExposureTime.numerator / rawExposureTime.denominator;
-                            } else {
-                                numericExposureTime = 0; // Or handle as error/infinity appropriately
-                            }
-                            console.log(`[EXIF] Converted Rational ExposureTime: ${rawExposureTime.numerator}/${rawExposureTime.denominator} to ${numericExposureTime}`);
-                        } else if (typeof rawExposureTime === 'string') {
-                            numericExposureTime = parseFloat(rawExposureTime);
-                        } else if (typeof rawExposureTime === 'number') {
-                            numericExposureTime = rawExposureTime;
-                        } else {
-                            numericExposureTime = NaN; // Unable to determine numeric value
-                        }
+            console.log("[PhotoGrid] Photos array populated from Cloudinary:", this.photos.slice(0, 2)); // Log first 2 for brevity
 
-                        console.log(`[EXIF] Data for ${photo.src}: Make=${make}, Model=${model}, F#=${fNumber}, ISO=${iso}, FocalLength=${focalLength}, Shutter=${rawExposureTime}`);
+            this.renderPhotoGrid();
+            this.initiateGridExifLoading(); // This will now primarily update UI as EXIF is pre-fetched
+            this.addMarkings(); 
 
-                        photo.exif = {
-                            camera: make && model ? `${make} ${model}` : (make || model || 'N/A'),
-                            lens: focalLength ? `${focalLength}mm` : 'N/A',
-                            fStop: fNumber ? `f/${fNumber}` : 'N/A',
-                            iso: iso ? `${iso}` : 'N/A',
-                            shutter: formatShutterSpeed(numericExposureTime, String(rawExposureTime)) // Pass numeric and ORIGINAL raw as string
-                        };
-                        photo.exifLoaded = true;
-                        resolve(photo); // Resolve with photo data
-                    });
-                } catch (e) {
-                    console.error(`[DEBUG] Error during EXIF processing for ${photo.src}:`, e);
-                    photo.exif = { camera: 'EXIF Error', lens: 'EXIF Error', fStop: 'EXIF Error', iso: 'EXIF Error', shutter: 'EXIF Error' };
-                    photo.exifLoaded = true;
-                    resolve(photo); // Resolve even on error
-                }
-            };
-
-            img.onerror = () => {
-                console.error(`[DEBUG] Failed to load image (img.onerror): ${photo.src}`);
-                photo.exif = { camera: 'Load Error', lens: 'Load Error', fStop: 'Load Error', iso: 'Load Error', shutter: 'Load Error' };
-                photo.exifLoaded = true;
-                resolve(photo); // Resolve even on error
-            };
-        });
+        } catch (error) {
+            console.error("[PhotoGrid] Error initializing photos from Cloudinary:", error);
+            this.container.innerHTML = `<p style="color: red; text-align: center;">Error loading photos: ${error.message}. Check console for details.</p>`;
+        }
     }
 
     renderPhotoGrid() {
@@ -277,79 +216,6 @@ class PhotographyPortfolio {
         }
     }
 
-    // Removed initiateGridExifLoading() method as it's no longer needed
-    /*
-    initiateGridExifLoading() {
-        const observerOptions = {
-            root: null, // observes intersections relative to the viewport
-            rootMargin: '0px',
-            threshold: 0.1 // Callback is run when 10% of the item is visible
-        };
-
-        const observerCallback = async (entries, observer) => {
-            for (const entry of entries) {
-                if (entry.isIntersecting) {
-                    const frame = entry.target;
-                    const photoId = parseInt(frame.getAttribute('data-photo-id'));
-                    const gridExifRendered = frame.getAttribute('data-grid-exif-rendered') === 'true';
-
-                    if (!gridExifRendered) {
-                        console.log(`[Observer] Frame for photo ID ${photoId} is intersecting. gridExifRendered: ${gridExifRendered}`);
-                        const photoData = this.photos.find(p => p.id === photoId);
-                        if (photoData) {
-                            if (!photoData.exifLoaded) {
-                                console.log(`[Observer] EXIF not loaded for ${photoData.src}. Calling extractExifData.`);
-                                await this.extractExifData(photoData);
-                            }
-                            console.log(`[Observer] Updating grid EXIF display for ${photoData.src}`);
-                            this.updateGridExifDisplay(frame, photoData);
-                            frame.setAttribute('data-grid-exif-rendered', 'true');
-                        }
-                    }
-                }
-            }
-        };
-
-        const observer = new IntersectionObserver(observerCallback, observerOptions);
-        const frames = document.querySelectorAll('.photo-frame');
-        frames.forEach(frame => observer.observe(frame));
-    }
-    */
-
-    // updateGridExifDisplay() is no longer used for on-grid EXIF.
-    // Commenting it out. It might be removed fully if not used by other logic implicitly.
-    /*
-    updateGridExifDisplay(frameElement, photoData) {
-        console.log(`[GridDisplay] Updating for photo: ${photoData ? photoData.src : 'undefined'}, EXIF loaded: ${photoData ? photoData.exifLoaded : 'undefined'}`);
-
-        const mmValue = frameElement.querySelector('.mm-value');
-        const shutterValue = frameElement.querySelector('.shutter-value');
-        const fstopValue = frameElement.querySelector('.fstop-value');
-
-        if (!mmValue || !shutterValue || !fstopValue) { 
-            console.error('[GridDisplay] One or more EXIF span elements not found in frame:', frameElement);
-            return;
-        }
-
-        if (!photoData || !photoData.exifLoaded) {
-            console.log(`[GridDisplay] EXIF not loaded or no photoData for ${frameElement.getAttribute('data-photo-id')}. Showing placeholders.`);
-            mmValue.textContent = '...';
-            shutterValue.textContent = '...';
-            fstopValue.textContent = '...';
-            return;
-        }
-
-        const getExif = (key) => photoData.exif[key] || '-';
-
-        mmValue.textContent = getExif('lens').replace('mm', '');
-        shutterValue.textContent = getExif('shutter');
-        fstopValue.textContent = getExif('fStop').replace('f/', '');
-
-        frameElement.querySelectorAll('.grid-exif-item.mm-value, .grid-exif-item.shutter-value, .grid-exif-item.fstop-value').forEach(el => el.style.opacity = '1');
-        frameElement.querySelectorAll('.grid-exif-item.mm-label, .grid-exif-item.shutter-speed-label, .grid-exif-item.fstop-label').forEach(el => el.style.opacity = '1');
-    }
-    */
-
     applyFilmStockStyle(stockValue) {
         const FILM_STOCK_CLASSES = {
             'trix': 'film-stock-trix',
@@ -416,188 +282,66 @@ class PhotographyPortfolio {
         });
     }
 
-    initiateGridExifLoading() {
-        const observerOptions = {
-            root: null,
-            rootMargin: '200px', // Load EXIF for images 200px before they enter viewport
-            threshold: 0.01 
-        };
-
-        const observerCallback = async (entries, observer) => {
-            for (const entry of entries) {
-                if (entry.isIntersecting) {
-                    const frame = entry.target; // This will be the photo-frame
-                    const photoId = parseInt(frame.getAttribute('data-photo-id'));
-                    const photoData = this.photos.find(p => p.id === photoId);
-
-                    if (photoData && !photoData.exifLoaded) {
-                        console.log(`[Observer] EXIF not loaded for ${photoData.src}. Initiating extractExifData.`);
-                        // No longer awaiting here - let them run concurrently
-                        this.extractExifData(photoData)
-                            .catch(error => {
-                                console.error(`[Observer] Error processing EXIF for ${photoData.src} in background:`, error);
-                            });
-                        observer.unobserve(frame); // Unobserve immediately after initiating
-                    } else if (photoData && photoData.exifLoaded) {
-                         // If EXIF was already loaded (e.g. from a previous modal view), ensure segment is updated
-                        this.updatePhotoInfoSegment(photoData);
-                        observer.unobserve(frame);
-                    }
-                }
-            }
-        };
-
-        const observer = new IntersectionObserver(observerCallback, observerOptions);
-        // We observe .photo-frame elements as they are what actually scroll into view
-        const frames = document.querySelectorAll('.photo-frame');
-        frames.forEach(frame => observer.observe(frame));
+    async extractExifData(photo) {
+        console.log(`[EXIF] extractExifData called for: ${photo.src}. EXIF Loaded: ${photo.exifLoaded}`);
+        if (photo.exifLoaded && photo.exif) {
+            console.log(`[EXIF] Pre-loaded EXIF data for ${photo.src}:`, photo.exif);
+            this.updatePhotoInfoSegment(photo);
+            this.updateModalExifDisplay(photo);
+            return photo;
+        } else {
+            console.warn(`[EXIF] Data not pre-loaded for ${photo.src}. Check serverless function.`);
+            photo.exif = { iso: 'N/A', shutter: 'N/A', fStop: 'N/A', model: 'N/A', lens: 'N/A' };
+            photo.exifLoaded = true;
+            this.updatePhotoInfoSegment(photo);
+            this.updateModalExifDisplay(photo);
+            return photo;
+        }
     }
 
-    // Modified extractExifData to call updatePhotoInfoSegment
-    async extractExifData(photo) { // Made async
-        console.log(`[EXIF] Attempting to extract EXIF for: ${photo.src}`);
-        return new Promise((resolve) => {
-            if (photo.exifLoaded) {
-                console.log(`[EXIF] Data already loaded/attempted for: ${photo.src}`);
-                this.updatePhotoInfoSegment(photo); // Update segment even if loaded before
-                resolve(photo);
-                return;
+    initiateGridExifLoading() {
+        console.log("[GridExif] Initiating EXIF display for grid items.");
+        const allFrames = document.querySelectorAll('.photo-frame');
+        allFrames.forEach(frame => {
+            const photoId = parseInt(frame.getAttribute('data-photo-id'));
+            const photoData = this.photos.find(p => p.id === photoId);
+            if (photoData && photoData.exifLoaded) {
+                this.updatePhotoInfoSegment(photoData);
             }
-
-            const img = new Image();
-            img.src = photo.src;
-
-            img.onload = () => {
-                console.log(`[EXIF] Image loaded (img.onload) for: ${photo.src}`);
-                try {
-                    EXIF.getData(img, () => {
-                        console.log(`[EXIF] EXIF.getData callback entered for: ${photo.src}`);
-                        const make = EXIF.getTag(img, "Make");
-                        const model = EXIF.getTag(img, "Model");
-                        const fNumber = EXIF.getTag(img, "FNumber");
-                        const iso = EXIF.getTag(img, "ISOSpeedRatings");
-                        const focalLength = EXIF.getTag(img, "FocalLength");
-                        
-                        let rawExposureTime = EXIF.getTag(img, "ExposureTime");
-                        let numericExposureTime;
-
-                        if (typeof rawExposureTime === 'object' && rawExposureTime.numerator && rawExposureTime.denominator) {
-                            // It's a Rational object from EXIF.js
-                            if (rawExposureTime.denominator !== 0) {
-                                numericExposureTime = rawExposureTime.numerator / rawExposureTime.denominator;
-                            } else {
-                                numericExposureTime = 0; // Or handle as error/infinity appropriately
-                            }
-                            console.log(`[EXIF] Converted Rational ExposureTime: ${rawExposureTime.numerator}/${rawExposureTime.denominator} to ${numericExposureTime}`);
-                        } else if (typeof rawExposureTime === 'string') {
-                            numericExposureTime = parseFloat(rawExposureTime);
-                        } else if (typeof rawExposureTime === 'number') {
-                            numericExposureTime = rawExposureTime;
-                        } else {
-                            numericExposureTime = NaN; // Unable to determine numeric value
-                        }
-
-                        photo.exif = {
-                            camera: make && model ? `${make} ${model}` : (make || model || 'N/A'),
-                            lens: focalLength ? `${focalLength}mm` : 'N/A',
-                            fStop: fNumber ? `f/${fNumber}` : 'N/A',
-                            iso: iso ? `${iso}` : 'N/A', 
-                            shutter: formatShutterSpeed(numericExposureTime, String(rawExposureTime)) // Pass numeric and ORIGINAL raw as string
-                        };
-                        photo.exifLoaded = true;
-                        this.updatePhotoInfoSegment(photo); // Update the info segment
-                        resolve(photo);
-                    });
-                } catch (e) {
-                    console.error(`[DEBUG] Error during EXIF processing for ${photo.src}:`, e);
-                    photo.exif = { camera: 'EXIF Error', lens: 'EXIF Error', fStop: 'EXIF Error', iso: 'Error', shutter: 'EXIF Error' };
-                    photo.exifLoaded = true;
-                    this.updatePhotoInfoSegment(photo); // Update with error state
-                    resolve(photo);
-                }
-            };
-
-            img.onerror = () => {
-                console.error(`[DEBUG] Failed to load image (img.onerror): ${photo.src}`);
-                photo.exif = { camera: 'Load Error', lens: 'Load Error', fStop: 'Load Error', iso: 'Error', shutter: 'Load Error' };
-                photo.exifLoaded = true;
-                this.updatePhotoInfoSegment(photo); // Update with error state
-                resolve(photo);
-            };
         });
     }
-    
-    updatePhotoInfoSegment(photo) {
-        console.log(`[MobileEXIF] updatePhotoInfoSegment called for photo ID: ${photo.id}, Loaded: ${photo.exifLoaded}`);
 
-        // Update the horizontal info segment(s)
+    updatePhotoInfoSegment(photo) {
+        console.log(`[InfoSegment] updatePhotoInfoSegment called for photo ID: ${photo.id}, Loaded: ${photo.exifLoaded}`);
+
         const infoSegments = document.querySelectorAll(`.info-segment[data-photo-id-info="${photo.id}"]`);
         infoSegments.forEach(infoSegment => {
             if (infoSegment) {
-                const isoValue = (photo.exifLoaded && photo.exif.iso && photo.exif.iso !== 'N/A') ? photo.exif.iso : '...';
-                const shutterValue = (photo.exifLoaded && photo.exif.shutter && photo.exif.shutter !== 'N/A') ? photo.exif.shutter : 'SS...';
-                const fStopValue = (photo.exifLoaded && photo.exif.fStop && photo.exif.fStop !== 'N/A') ? photo.exif.fStop : 'F/...';
+                const isoValue = (photo.exifLoaded && photo.exif && photo.exif.iso) ? photo.exif.iso : '...';
+                const shutterValue = (photo.exifLoaded && photo.exif && photo.exif.shutter) ? photo.exif.shutter : 'SS...';
+                const fStopValue = (photo.exifLoaded && photo.exif && photo.exif.fStop) ? photo.exif.fStop : 'F/...';
                 infoSegment.textContent = `ISO ${isoValue} - ${shutterValue} - ${fStopValue}`;
             }
         });
 
-        // Update the detailed EXIF data div (used by the modal) for original and clones
+        const mobileExifSummaries = document.querySelectorAll(`.mobile-exif-summary[data-photo-id-mobile-exif="${photo.id}"]`);
+        mobileExifSummaries.forEach(summaryElement => {
+            if (summaryElement) {
+                const fStop = (photo.exifLoaded && photo.exif && photo.exif.fStop) ? photo.exif.fStop : 'F/...';
+                const shutter = (photo.exifLoaded && photo.exif && photo.exif.shutter) ? photo.exif.shutter : 'SS...';
+                summaryElement.textContent = `${fStop} · ${shutter}`;
+            }
+        });
+    }
+
+    updateModalExifDisplay(photo) {
         const frame = document.querySelector(`.photo-frame[data-photo-id="${photo.id}"]`);
         if (frame) {
             const exifDataElement = frame.querySelector('.exif-data');
             if (exifDataElement) {
                 exifDataElement.innerHTML = `Camera: ${photo.exif.camera}<br>Lens: ${photo.exif.lens}<br>Details: ${photo.exif.fStop} | ${photo.exif.shutter} | ISO ${photo.exif.iso}`;
             }
-
-            // Update the new mobile-specific EXIF summary
-            const mobileExifSummaryElement = frame.querySelector('.mobile-exif-summary');
-            console.log(`[MobileEXIF] Found .mobile-exif-summary element for ID ${photo.id}:`, mobileExifSummaryElement);
-
-            if (mobileExifSummaryElement) {
-                let summaryText = '';
-                if (photo.exif.fStop && photo.exif.fStop !== 'N/A') {
-                    summaryText += photo.exif.fStop;
-                }
-                if (photo.exif.shutter && photo.exif.shutter !== 'N/A') {
-                    if (summaryText) summaryText += ' · '; // Add separator if fStop was present
-                    summaryText += photo.exif.shutter;
-                }
-                console.log(`[MobileEXIF] Generated summaryText for ID ${photo.id}: "${summaryText}"`);
-                mobileExifSummaryElement.textContent = summaryText || ''; 
-                console.log(`[MobileEXIF] Set textContent for ID ${photo.id} to: "${mobileExifSummaryElement.textContent}"`);
-            } else {
-                console.warn(`[MobileEXIF] .mobile-exif-summary element NOT FOUND for photo ID: ${photo.id}`);
-            }
-        } else {
-            console.warn(`[MobileEXIF] Photo frame NOT FOUND for photo ID: ${photo.id}`);
         }
-
-        // Also update any cloned elements if they exist
-        const clonedFrames = document.querySelectorAll(`.photo-frame[data-photo-id="${photo.id}"][data-is-clone="true"]`);
-        clonedFrames.forEach(clonedFrame => {
-            // Update the new mobile-specific EXIF summary for clones
-            const clonedMobileExifSummaryElement = clonedFrame.querySelector('.mobile-exif-summary');
-            if (clonedMobileExifSummaryElement) {
-                let summaryText = '';
-                if (photo.exif.fStop && photo.exif.fStop !== 'N/A') {
-                    summaryText += photo.exif.fStop;
-                }
-                if (photo.exif.shutter && photo.exif.shutter !== 'N/A') {
-                    if (summaryText) summaryText += ' · ';
-                    summaryText += photo.exif.shutter;
-                }
-                clonedMobileExifSummaryElement.textContent = summaryText || '';
-                // console.log(`[MobileEXIF-Clone] Set textContent for cloned ID ${photo.id} to: "${clonedMobileExifSummaryElement.textContent}"`);
-            } else {
-                // console.warn(`[MobileEXIF-Clone] .mobile-exif-summary element NOT FOUND for cloned photo ID: ${photo.id} in frame:`, clonedFrame);
-            }
-
-            // Also update the detailed EXIF for clones if needed for modal consistency from cloned items
-            const clonedExifDataElement = clonedFrame.querySelector('.exif-data');
-            if (clonedExifDataElement) {
-                clonedExifDataElement.innerHTML = `Camera: ${photo.exif.camera}<br>Lens: ${photo.exif.lens}<br>Details: ${photo.exif.fStop} | ${photo.exif.shutter} | ISO ${photo.exif.iso}`;
-            }
-        });
     }
 
     // Helper to get film name string

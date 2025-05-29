@@ -1,0 +1,23 @@
+{
+  "name": "photography-portfolio",
+  "version": "1.0.0",
+  "description": "A stunning photography portfolio website designed to mimic the aesthetic of film contact sheets with parallax pen annotations and EXIF data display.",
+  "main": "google-drive-helper.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amadan95/alokmadan_photography_portfolio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/amadan95/alokmadan_photography_portfolio/issues"
+  },
+  "homepage": "https://github.com/amadan95/alokmadan_photography_portfolio#readme",
+  "dependencies": {
+    "cloudinary": "^2.6.1"
+  }
+}
